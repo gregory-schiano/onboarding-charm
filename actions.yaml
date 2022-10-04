@@ -1,0 +1,6 @@
+# Copyright 2022 Gregory Schiano
+# See LICENSE file for licensing details.
+#
+
+update-gravity:
+  description: Refresh Pi-hole Gravity database
