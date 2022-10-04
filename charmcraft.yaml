@@ -1,0 +1,12 @@
+# Learn more about charmcraft.yaml configuration at:
+# https://juju.is/docs/sdk/charmcraft-config
+type: "charm"
+bases:
+  - build-on:
+    - name: "ubuntu"
+      channel: "20.04"
+      architectures: [arm64]
+    run-on:
+    - name: "ubuntu"
+      channel: "20.04"
+      architectures: [arm64]

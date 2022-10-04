@@ -1,0 +1,33 @@
+# Copyright 2022 Gregory Schiano
+# See LICENSE file for licensing details.
+
+# For a complete list of supported options, see:
+# https://juju.is/docs/sdk/metadata-reference
+name: pihole-operator
+display-name: |
+  K8S Pi-hole
+description: |
+  A charm which deploys and manages a Pi-hole instance
+summary: |
+  The Pi-hole is a DNS sinkhole that protects your devices from unwanted content, without installing any client-side software.
+
+containers:
+  pihole:
+    resource: pihole-image
+    mounts:
+      - storage: pgdata
+        location: /etc/pihole
+
+resources:
+  pihole-image:
+    type: oci-image
+    description: OCI image for pihole (pihole/pihole)
+
+storage:
+  pgdata:
+    type: filesystem
+    location: /etc/pihole
+
+assumes:
+  - k8s-api
+  - juju >= 2.9

@@ -1,0 +1,26 @@
+# Copyright 2022 Gregory Schiano
+# See LICENSE file for licensing details.
+#
+# TEMPLATE-TODO: change this example to suit your needs.
+# If you don't need a config, you can remove the file entirely.
+# It ties in to the example _on_config_changed handler in src/charm.py
+#
+# Learn more about config at: https://juju.is/docs/sdk/config
+
+options:
+  dns1:
+    description: Primary DNS used as upstream DNS server (non mandatory)
+    type: string
+    default: ""
+  dns2:
+    description: Secondary DNS used as upstream DNS server (non mandatory)
+    type: string
+    default: ""
+  web_port:
+    description: Port used to expose the Web UI
+    type: string
+    default: "80"
+  web_password:
+    description: Default password used for Web UI
+    type: string
+    default: "admin"
