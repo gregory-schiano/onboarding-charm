@@ -74,14 +74,14 @@ class PiholeOperatorCharm(CharmBase):
 
         # Get a reference the container attribute on the PebbleReadyEvent
         container = event.workload
-        
+
         # Reset state
         self._stored.gravityonboot = False
 
         # First call the startup script, must be called before services are started
         logger.debug("Executing startup script")
         self._execute_script(container, "_startup.sh", "/usr/local/bin")
-        
+
         # Push required script
         logger.debug("Pushing pihole-FTL script")
         container.push(
@@ -112,7 +112,7 @@ class PiholeOperatorCharm(CharmBase):
 
     def _on_config_changed(self, event):
         """ Config has changed """
-        
+
         logger.info("_on_config_changed")
 
         container = self.unit.get_container(self._name)
@@ -275,6 +275,7 @@ class PiholeOperatorCharm(CharmBase):
         file: Path = Path(f"{self._scripts_dir}{name}")
         with file.open() as script:
             return script.read()
+
 
 if __name__ == "__main__":
     main(PiholeOperatorCharm)
