@@ -14,16 +14,15 @@ develop a new k8s charm using the Operator Framework:
 
 import logging
 import re
+import socket
 from pathlib import Path
 
-from charms.observability_libs.v1.kubernetes_service_patch import \
-    KubernetesServicePatch
+from charms.observability_libs.v1.kubernetes_service_patch import KubernetesServicePatch
 from lightkube.models.core_v1 import ServicePort
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
-from ops.model import (ActiveStatus, BlockedStatus, MaintenanceStatus,
-                       WaitingStatus)
+from ops.model import (ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus)
 from ops.pebble import ExecError, Layer
 
 logger = logging.getLogger(__name__)
@@ -68,6 +67,11 @@ class PiholeOperatorCharm(CharmBase):
         self.framework.observe(self.on.pihole_pebble_ready, self._on_pihole_pebble_ready)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.update_gravity_action, self._on_update_gravity)
+
+    @property
+    def address(self) -> str:
+        """Unit's hostname."""
+        return socket.getfqdn()
 
     def _on_pihole_pebble_ready(self, event):
         """Define and start a workload using the Pebble API."""
@@ -260,7 +264,7 @@ class PiholeOperatorCharm(CharmBase):
             "PIHOLE_INSTALL": "/etc/.pihole/automated install/basic-install.sh",
             "PHP_ENV_CONFIG": "/etc/lighttpd/conf-enabled/15-fastcgi-php.conf",
             "PHP_ERROR_LOG": "/var/log/lighttpd/error-pihole.log",
-            "FTLCONF_LOCAL_IPV4": "0.0.0.0",
+            "FTLCONF_LOCAL_IPV4": self.address,
             "FTL_CMD": "no-daemon",
             "DNSMASQ_USER": "pihole"
         }

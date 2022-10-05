@@ -3,15 +3,14 @@
 #
 # Learn more about testing at: https://juju.is/docs/sdk/testing
 
+from shutil import ExecError
 import unittest
-
 from unittest.mock import MagicMock, Mock, patch
 
 from ops import testing
-from ops.model import ActiveStatus, Container, WaitingStatus
-from ops.testing import Harness
-
+from ops.model import ActiveStatus, BlockedStatus, Container, WaitingStatus
 from ops.pebble import ServiceInfo
+from ops.testing import Harness
 
 from charm import PiholeOperatorCharm
 
@@ -24,6 +23,10 @@ class MockExecProcess(object):
 
 class MockExecAction(object):
     wait_output: MagicMock = MagicMock(return_value=("gravity domains: 15 ()", None))
+
+
+class MockExecActionFailed(object):
+    wait_output: MagicMock = MagicMock(return_value=("test", None))
 
 
 class TestCharm(unittest.TestCase):
@@ -104,6 +107,35 @@ class TestCharm(unittest.TestCase):
 
             self.assertEqual("1.1.1.1;2.2.2.2", updated_plan_service_env["PIHOLE_DNS_"])
 
+    def test_config_changed_cant_connect(self):
+        with patch.object(Container, "exec", return_value=MockExecProcess()), \
+                patch.object(Container, "push", ):
+            self.harness.container_pebble_ready("pihole")
+            self.harness.set_can_connect("pihole", False)
+            self.harness.update_config(
+                {
+                    "web_port": "8080",
+                    "web_password": "test"
+                }
+            )
+
+        self.assertEqual(self.harness.model.unit.status, WaitingStatus('Waiting for pebble'))
+
+    def test_config_changed_services_not_running(self):
+        with patch.object(Container, "exec", return_value=MockExecProcess()), \
+                patch.object(ServiceInfo, "is_running", return_value=False), \
+                patch.object(Container, "push"):
+            self.harness.container_pebble_ready("pihole")
+            self.harness.update_config(
+                {
+                    "web_port": "8080",
+                    "web_password": "test"
+                }
+            )
+
+        self.assertEqual(self.harness.model.unit.status,
+                         WaitingStatus("Waiting for pebble services"))
+
     def test_action(self):
         self.harness.set_can_connect("pihole", True)
         # the harness doesn't (yet!) help much with actions themselves
@@ -123,6 +155,19 @@ class TestCharm(unittest.TestCase):
         action_event: Mock = Mock(params={"fail": ""})
 
         with patch.object(Container, "exec", return_value=MockExecAction()):
+            self.harness.charm._on_update_gravity(action_event)
+
+        expected_results = {
+            'success': False,
+            'number-of-gravity-domains': 0
+        }
+        action_event.set_results.assert_called_with(expected_results)
+
+    def test_action_fail_wrong_stdout(self):
+        # the harness doesn't (yet!) help much with actions themselves
+        action_event: Mock = Mock(params={"fail": ""})
+
+        with patch.object(Container, "exec", return_value=MockExecActionFailed()):
             self.harness.charm._on_update_gravity(action_event)
 
         expected_results = {
@@ -152,7 +197,7 @@ class TestCharm(unittest.TestCase):
                 "PIHOLE_INSTALL": "/etc/.pihole/automated install/basic-install.sh",
                 "PHP_ENV_CONFIG": "/etc/lighttpd/conf-enabled/15-fastcgi-php.conf",
                 "PHP_ERROR_LOG": "/var/log/lighttpd/error-pihole.log",
-                "FTLCONF_LOCAL_IPV4": "0.0.0.0",
+                "FTLCONF_LOCAL_IPV4": "charm-dev",
                 "FTL_CMD": "no-daemon",
                 "DNSMASQ_USER": "pihole"
             }
@@ -196,7 +241,7 @@ class TestCharm(unittest.TestCase):
 
             updated_plan = self.harness.get_container_pebble_plan("pihole").to_dict()
             self.assertDictEqual(expected_plan, updated_plan)
-            
+
             # Check the service was started
             for service_name in ["pihole", "lighttpd", "cron"]:
                 service = container.get_service(service_name)
@@ -215,10 +260,12 @@ class TestCharm(unittest.TestCase):
         self.harness.set_can_connect("pihole", True)
         container = self.harness.model.unit.get_container("pihole")
         with patch.object(Container, "exec", return_value=MockExecProcess()) as exec_mock, \
-                patch.object(ServiceInfo, "is_running", return_value=False):
+                patch.object(ServiceInfo, "is_running", return_value=False), \
+                patch.object(Container, "push"):
             self.harness.charm.on.pihole_pebble_ready.emit(container)
 
             self.assertEqual(self.harness.charm._stored.gravityonboot, False)
-            self.assertEqual(self.harness.model.unit.status, WaitingStatus())
+            self.assertEqual(self.harness.model.unit.status,
+                             WaitingStatus('Waiting for pebble services'))
             # Gravity on boot not called
             exec_mock.assert_called_once()
