@@ -22,7 +22,7 @@ from lightkube.models.core_v1 import ServicePort
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
-from ops.model import (ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus)
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 from ops.pebble import ExecError, Layer
 
 logger = logging.getLogger(__name__)
@@ -38,31 +38,16 @@ class PiholeOperatorCharm(CharmBase):
         self._name = "pihole"
         self._scripts_dir = "src/scripts/"
 
-        self._stored.set_default(
-            gravityonboot=False
-        )
+        self._stored.set_default(gravityonboot=False)
 
         http_port = ServicePort(
-            int(self.config["web_port"]),
-            name=f"{self._name}-web",
-            targetPort=80
+            int(self.config["web_port"]), name=f"{self._name}-web", targetPort=80
         )
-        dns_tcp_port = ServicePort(
-            53,
-            name=f"{self._name}-tcp-dns",
-            targetPort=53
+        dns_tcp_port = ServicePort(53, name=f"{self._name}-tcp-dns", targetPort=53)
+        dns_udp_port = ServicePort(53, name=f"{self._name}-udp-dns", protocol="UDP", targetPort=53)
+        self.service_patcher = KubernetesServicePatch(
+            self, [http_port, dns_tcp_port, dns_udp_port], service_type="NodePort"
         )
-        dns_udp_port = ServicePort(
-            53,
-            name=f"{self._name}-udp-dns",
-            protocol="UDP",
-            targetPort=53
-        )
-        self.service_patcher = KubernetesServicePatch(self, [
-            http_port,
-            dns_tcp_port,
-            dns_udp_port
-        ], service_type="NodePort")
 
         self.framework.observe(self.on.pihole_pebble_ready, self._on_pihole_pebble_ready)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
@@ -91,9 +76,7 @@ class PiholeOperatorCharm(CharmBase):
         # Push required script
         logger.debug("Pushing pihole-FTL script")
         container.push(
-            "/usr/local/bin/_pihole-FTL.sh",
-            self._get_script("pihole-FTL.sh"),
-            permissions=0o770
+            "/usr/local/bin/_pihole-FTL.sh", self._get_script("pihole-FTL.sh"), permissions=0o770
         )
 
         logger.debug("Configuring pebble layer")
@@ -117,7 +100,7 @@ class PiholeOperatorCharm(CharmBase):
         self.unit.status = ActiveStatus()
 
     def _on_config_changed(self, event):
-        """ Config has changed """
+        """Config has changed"""
 
         logger.info("_on_config_changed")
 
@@ -156,15 +139,12 @@ class PiholeOperatorCharm(CharmBase):
         self.unit.status = ActiveStatus()
 
     def _on_update_gravity(self, event):
-        """ Action that trigger the Pi-hole CLI to update Gravity database """
+        """Action that trigger the Pi-hole CLI to update Gravity database"""
 
         logger.info("_on_update_gravity")
 
         container = self.unit.get_container(self._name)
-        results = {
-            "success": False,
-            "number-of-gravity-domains": 0
-        }
+        results = {"success": False, "number-of-gravity-domains": 0}
 
         if container.can_connect():
             logging.debug("Executing upgradeGravity command")
@@ -184,10 +164,7 @@ class PiholeOperatorCharm(CharmBase):
     def _execute_script(self, container, script: str, path: str, args: list = []):
         logger.debug(f"Running {script} script")
         cmd: list[str] = [f"{path}/{script}"] + args
-        process = container.exec(
-            cmd,
-            environment=self._get_env_config()
-        )
+        process = container.exec(cmd, environment=self._get_env_config())
         try:
             stdout, _ = process.wait_output()
             logger.debug(f"{script} stdout: {stdout}")
@@ -219,7 +196,7 @@ class PiholeOperatorCharm(CharmBase):
                     "summary": "pihole-FTL service",
                     "command": "/usr/local/bin/_pihole-FTL.sh",
                     "startup": "enabled",
-                    "environment": env_config
+                    "environment": env_config,
                 },
                 "lighttpd": {
                     "override": "replace",
@@ -227,29 +204,27 @@ class PiholeOperatorCharm(CharmBase):
                     "command": "/usr/sbin/lighttpd -D -f /etc/lighttpd/lighttpd.conf",
                     "startup": "enabled",
                     "environment": env_config,
-                    "after": ["pihole"]
+                    "after": ["pihole"],
                 },
                 "cron": {
                     "override": "replace",
                     "summary": "Cron service",
                     "command": "/usr/sbin/cron -f -l 2",
-                    "startup": "enabled"
-                }
+                    "startup": "enabled",
+                },
             },
             "checks": {
                 "lighttpd-check": {
                     "override": "replace",
-                    "http": {
-                        "url": f"http://localhost:{self.config['web_port']}"
-                    }
+                    "http": {"url": f"http://localhost:{self.config['web_port']}"},
                 },
                 "pihole-check": {
                     "override": "replace",
                     "exec": {
                         "command": "dig +short +norecurse +retry=0 @127.0.0.1 pi.hole || exit 1"
-                    }
-                }
-            }
+                    },
+                },
+            },
         }
 
     def _get_env_config(self) -> dict:
@@ -266,7 +241,7 @@ class PiholeOperatorCharm(CharmBase):
             "PHP_ERROR_LOG": "/var/log/lighttpd/error-pihole.log",
             "FTLCONF_LOCAL_IPV4": self.address,
             "FTL_CMD": "no-daemon",
-            "DNSMASQ_USER": "pihole"
+            "DNSMASQ_USER": "pihole",
         }
 
     def _get_upstream_dns_config(self) -> str:
