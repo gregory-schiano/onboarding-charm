@@ -14,15 +14,17 @@ develop a new k8s charm using the Operator Framework:
 
 import logging
 import re
-
 from pathlib import Path
+
+from charms.observability_libs.v1.kubernetes_service_patch import \
+    KubernetesServicePatch
+from lightkube.models.core_v1 import ServicePort
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
-from ops.model import ActiveStatus, MaintenanceStatus, WaitingStatus, BlockedStatus
+from ops.model import (ActiveStatus, BlockedStatus, MaintenanceStatus,
+                       WaitingStatus)
 from ops.pebble import ExecError, Layer
-from charms.observability_libs.v1.kubernetes_service_patch import KubernetesServicePatch
-from lightkube.models.core_v1 import ServicePort
 
 logger = logging.getLogger(__name__)
 
@@ -166,9 +168,12 @@ class PiholeOperatorCharm(CharmBase):
             results["success"] = True
             parsed_output = re.search(r"gravity domains: (\w+) \(", output)
             if not parsed_output.groups() or len(parsed_output.groups()) > 1:
-                logger.debug(f"Error parsing command output, expected exactly 1 result got {parsed_output.groups()}")
+                logger.debug(
+                    "Error parsing command output,"
+                    f" expected exactly 1 result got {parsed_output.groups()}"
+                )
                 return event.set_results(results)
-            results["number-of-gravity-domains"] = parsed_output.group(1)
+            results["number-of-gravity-domains"] = int(parsed_output.group(1))
 
         return event.set_results(results)
 
